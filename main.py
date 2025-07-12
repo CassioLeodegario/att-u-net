@@ -1,9 +1,8 @@
 # main.py
 
 import os
-# IMPORTANTE: Se você quer usar a GPU no Vast.ai, REMOVA ou comente a linha abaixo.
-# Se você setar para -1, ele rodará na CPU.
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import tensorflow as tf
 from data import data_loader
