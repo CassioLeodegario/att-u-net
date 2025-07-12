@@ -1,13 +1,13 @@
 # config.py
 
 # Parâmetros de imagem
-HEIGHT = 256
-WIDTH = 256
+HEIGHT = 512
+WIDTH = 512
 
 # Hiperparâmetros do modelo
 BATCH_SIZE = 8
 EPOCHS = 50
-LR = 1e-4 # Learning Rate
+LR = 1e-2 # Learning Rate
 
 # Caminhos de dados e resultados
 DATASET_PATH = '/workspace/dataset/BCSS_512'
