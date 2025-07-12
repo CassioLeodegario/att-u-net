@@ -2,7 +2,11 @@
 
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
-from .. import config
+import sys
+import os
+att_unet_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, att_unet_path)
+import config
 from utils import metrics
 import matplotlib.pyplot as plt
 
