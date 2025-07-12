@@ -2,7 +2,7 @@
 
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
-from . import config
+from .. import config
 from utils import metrics
 import matplotlib.pyplot as plt
 
