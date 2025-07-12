@@ -31,7 +31,7 @@ def train_model(model, train_dataset, valid_dataset):
 
     # Compilação
     model.compile(
-        loss="binary_crossentropy",
+        loss="categorical_crossentropy",
         optimizer=tf.keras.optimizers.Adam(config.LR),
         metrics=metrics_to_use
     )

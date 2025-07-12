@@ -3,7 +3,7 @@ import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
-from tensorflow.keras.layers import Conv2D, BatchNormalization, Activation, MaxPool2D, Conv2DTranspose, Concatenate, Input
+from tensorflow.keras.layers import Conv2D, BatchNormalization, Activation, MaxPool2D, UpSampling2D, Concatenate, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Multiply
 
@@ -37,13 +37,13 @@ def attention_gate(g, s, num_filters):
     return out * s
 
 def decoder_block(inputs, skip_features, num_filters):
-    x = Conv2DTranspose(num_filters, (2, 2), strides=2, padding="same")(inputs)
+    x = UpSampling2D(interpolation="bilinear")(inputs)
     s = attention_gate(x, skip_features, num_filters)
     x = Concatenate()([x, s])
     x = conv_block(x, num_filters)
     return x
 
-def build_unet(input_shape):
+def build_unet(input_shape, num_classes):
     inputs = Input(input_shape)
 
     s1, p1 = encoder_block(inputs, 64)
@@ -58,7 +58,7 @@ def build_unet(input_shape):
     d3 = decoder_block(d2, s2, 128)
     d4 = decoder_block(d3, s1, 64)
 
-    outputs = Conv2D(1, 1, padding="same", activation="sigmoid")(d4)
+    outputs = Conv2D(num_classes, 1, padding="same", activation="softmax")(d4)
 
     model = Model(inputs, outputs, name="Attention_UNET")
     return model

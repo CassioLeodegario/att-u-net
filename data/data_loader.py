@@ -68,13 +68,11 @@ def read_image(path):
     return x
 
 def read_mask(path):
-    """ Lê uma máscara do disco. """
+    """ Lê uma máscara do disco. Para segmentação multiclasse. """
     path = path.decode()
     x = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    x = cv2.resize(x, (config.WIDTH, config.HEIGHT))
-    # A normalização já é feita implicitamente no notebook original, aqui mantemos
-    x = np.expand_dims(x, axis=-1)
-    x = x.astype(np.float32)
+    x = cv2.resize(x, (config.WIDTH, config.HEIGHT), interpolation=cv2.INTER_NEAREST)
+    x = x.astype(np.int32)  
     return x
 
 def tf_parse(x, y):
@@ -84,9 +82,9 @@ def tf_parse(x, y):
         y = read_mask(y.numpy())
         return x, y
 
-    x, y = tf.py_function(_parse, [x, y], [tf.float32, tf.float32])
+    x, y = tf.py_function(_parse, [x, y], [tf.float32, tf.int32])
     x.set_shape([config.HEIGHT, config.WIDTH, 3])
-    y.set_shape([config.HEIGHT, config.WIDTH, 1])
+    y.set_shape([config.HEIGHT, config.WIDTH]) 
     return x, y
 
 def tf_dataset(X, Y, batch_size):

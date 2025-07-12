@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # Construindo o modelo
     input_shape = (config.HEIGHT, config.WIDTH, 3) # As dimensões da imagem e canais
     # Certifique-se que unet.build_unet existe e retorna um modelo Keras
-    model = unet.build_unet(input_shape)
+    model = unet.build_unet(input_shape, config.NUM_CLASSES)
     model.summary()
 
     # Treinando o modelo
