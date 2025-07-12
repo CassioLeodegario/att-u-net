@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # Use config.DATASET_BASE_PATH que aponta para a pasta raiz do seu dataset (ex: /workspace/dataset/BCSS_512)
     # A variável test_split_ratio é passada para o data_loader.load_dataset
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = \
-        data_loader.load_dataset(config.DATASET_BASE_PATH, test_split_ratio=0.15)
+        data_loader.load_dataset(config.DATASET_PATH, test_split_ratio=0.15)
     
     # Ajuste o print para as variáveis corretas
     print(f"Dataset carregado:")
