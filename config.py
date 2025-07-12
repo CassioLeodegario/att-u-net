@@ -10,6 +10,6 @@ EPOCHS = 50
 LR = 1e-4 # Learning Rate
 
 # Caminhos de dados e resultados
-DATASET_PATH = "/content/BCSS-master/dataset/" # Caminho para a pasta do dataset extraído
+DATASET_PATH = '/workspace/dataset/BCSS_512'
 MODEL_PATH = "results/attention_unet_bcss.keras" # Caminho para salvar o modelo treinado
 RESULTS_PATH = "results/" # Pasta para salvar gráficos e outros resultados
