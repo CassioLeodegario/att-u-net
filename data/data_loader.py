@@ -49,7 +49,11 @@ def read_mask(path):
         9: 8, 10: 9, 11: 10, 12: 11, 13: 12, 14: 13,
         15: 14, 17: 15, 18: 16, 19: 17, 20: 18
     }
-    x = np.vectorize(label_map.get)(x).astype(np.int32)
+
+    # Usa função robusta para mapear com valor default 0
+    map_fn = np.frompyfunc(lambda v: label_map.get(v, 0), 1, 1)
+    x = map_fn(x).astype(np.int32)
+
     return x
 
 def tf_parse(x, y):
