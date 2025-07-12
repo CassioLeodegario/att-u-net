@@ -1,6 +1,8 @@
 # main.py
 
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import tensorflow as tf
 from data import data_loader
 from model import unet, train

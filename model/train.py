@@ -1,12 +1,16 @@
 # model/train.py
 
-import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
 import sys
 import os
 att_unet_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, att_unet_path)
+
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import config
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
+import tensorflow as tf
 from utils import metrics
 import matplotlib.pyplot as plt
 
