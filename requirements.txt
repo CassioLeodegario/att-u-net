@@ -1,0 +1,6 @@
+# requirements.txt
+
+tensorflow
+opencv-python-headless
+scikit-learn
+matplotlib
