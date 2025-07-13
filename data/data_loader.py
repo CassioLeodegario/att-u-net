@@ -1,5 +1,4 @@
 # data_loader.py
-
 import sys
 import os
 att_unet_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -43,17 +42,10 @@ def read_mask(path):
     x = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     x = cv2.resize(x, (config.WIDTH, config.HEIGHT), interpolation=cv2.INTER_NEAREST)
 
-    # Reindexar os valores para [0, ..., 18]
-    label_map = {
-        0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7,
-        9: 8, 10: 9, 11: 10, 12: 11, 13: 12, 14: 13,
-        15: 14, 17: 15, 18: 16, 19: 17, 20: 18
-    }
+    # Ignora valores > 7 (transforma em 0)
+    x = np.where(x > 7, 0, x)
 
-    # Usa função robusta para mapear com valor default 0
-    map_fn = np.frompyfunc(lambda v: label_map.get(v, 0), 1, 1)
-    x = map_fn(x).astype(np.int32)
-
+    x = x.astype(np.int32)
     return x
 
 def tf_parse(x, y):
@@ -67,9 +59,19 @@ def tf_parse(x, y):
     y.set_shape([config.HEIGHT, config.WIDTH])
     return x, y
 
+def tf_augment(x, y):
+    x = tf.image.random_flip_left_right(x)
+    y = tf.image.random_flip_left_right(tf.expand_dims(y, -1))
+    y = tf.squeeze(y, -1)
+
+    x = tf.image.random_brightness(x, max_delta=0.1)
+    x = tf.image.random_contrast(x, 0.9, 1.1)
+    return x, y
+
 def tf_dataset(X, Y, batch_size):
     dataset = tf.data.Dataset.from_tensor_slices((X, Y))
     dataset = dataset.map(tf_parse, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset = dataset.map(tf_augment, num_parallel_calls=tf.data.AUTOTUNE)
     dataset = dataset.batch(batch_size)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
     return dataset

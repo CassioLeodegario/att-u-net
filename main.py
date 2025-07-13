@@ -50,7 +50,7 @@ if __name__ == "__main__":
     # Criando os datasets do TensorFlow
     # Use X_train, y_train, X_val, y_val conforme retornados por data_loader.load_dataset
     train_dataset = data_loader.tf_dataset(X_train, y_train, config.BATCH_SIZE)
-    valid_dataset = data_loader.tf_dataset(X_val, y_val, config.BATCH_SIZE)
+    valid_dataset = data_loader.tf_dataset(X_test, y_test, config.BATCH_SIZE)
     
     # Opcional: Se você quiser um dataset para inferência/previsão, use tf_dataset_inference
     # test_inference_dataset = data_loader.tf_dataset_inference(X_test, config.BATCH_SIZE)

@@ -14,4 +14,4 @@ DATASET_PATH = '/workspace/dataset/BCSS_512'
 MODEL_PATH = "results/attention_unet_bcss.keras" # Caminho para salvar o modelo treinado
 RESULTS_PATH = "results/" # Pasta para salvar gráficos e outros resultados
 
-NUM_CLASSES = 19
+NUM_CLASSES = 7
