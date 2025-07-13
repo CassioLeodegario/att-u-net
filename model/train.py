@@ -31,7 +31,7 @@ def train_model(model, train_dataset, valid_dataset):
 
     # Compilação
     model.compile(
-        loss=metrics.dice_loss,
+        loss=metrics.focal_loss(gamma=2.0),
         optimizer=tf.keras.optimizers.Adam(config.LR),
         metrics=metrics_to_use
     )

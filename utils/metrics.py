@@ -3,6 +3,8 @@ import os
 
 import tensorflow as tf
 from tensorflow.keras import backend as K
+from tensorflow.keras.utils import register_keras_serializable
+
 import config  
 
 def dice_coef(y_true, y_pred, smooth=1e-7):
@@ -34,3 +36,20 @@ def dice_loss(y_true, y_pred, smooth=1e-7):
     dice = (2. * intersection + smooth) / (union + smooth)
 
     return 1 - K.mean(dice)
+
+@register_keras_serializable()
+def focal_loss(gamma=2.0):
+    def loss_fn(y_true, y_pred):
+        # One-hot em y_true
+        y_true = tf.cast(tf.one_hot(tf.cast(y_true, tf.int32), depth=config.NUM_CLASSES), tf.float32)
+
+        # Estabilização numérica
+        y_pred = tf.clip_by_value(y_pred, 1e-7, 1.0)
+
+        # Focal Loss
+        cross_entropy = -y_true * tf.math.log(y_pred)
+        weight = tf.pow(1 - y_pred, gamma)
+        loss = weight * cross_entropy
+
+        return tf.reduce_mean(tf.reduce_sum(loss, axis=-1))  # média por imagem
+    return loss_fn
