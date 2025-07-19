@@ -1,77 +1,91 @@
-# main.py
-
 import os
-
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
 import tensorflow as tf
 from data import data_loader
-from model import unet, train # Assumindo que 'train' é seu módulo com a função train_model e plot_history
+from model import unet, train
 import config
+import numpy as np
+from tqdm import tqdm
+from utils import metrics
 
 if __name__ == "__main__":
-    # Garante que o backend do Keras está sendo usado (já é padrão para TF 2.x)
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2" # Oculta mensagens de log do TF menos importantes
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
-    # Cria a pasta de resultados se não existir
-    # Certifique-se que config.RESULTS_PATH está definido no seu config.py
     if not os.path.exists(config.RESULTS_PATH):
         os.makedirs(config.RESULTS_PATH)
         print(f"Diretório de resultados criado: {config.RESULTS_PATH}")
     
-    # Verifica e configura a disponibilidade de GPU
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
         try:
-            # Configura o crescimento de memória para evitar que a GPU aloque toda a memória de uma vez
             for gpu in gpus:
                 tf.config.experimental.set_memory_growth(gpu, True)
             print(f"GPUs disponíveis: {len(gpus)}")
         except RuntimeError as e:
-            # Erros de memória devem ser capturados aqui
             print(f"Erro ao configurar GPU: {e}")
     else:
         print("Nenhuma GPU encontrada. O treinamento será executado na CPU.")
 
-
-    # Carregando o dataset e realizando a divisão para treino, validação e teste
-    # Use config.DATASET_BASE_PATH que aponta para a pasta raiz do seu dataset (ex: /workspace/dataset/BCSS_512)
-    # A variável test_split_ratio é passada para o data_loader.load_dataset
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = \
         data_loader.load_dataset(config.DATASET_PATH, test_split_ratio=0.15)
     
-    # Ajuste o print para as variáveis corretas
     print(f"Dataset carregado:")
     print(f"  Treino: {len(X_train)} imagens")
-    print(f"  Validação: {len(X_val)} imagens")
-    print(f"  Teste: {len(X_test)} imagens")
+    print(f"  Validação: {len(X_test)} imagens")
+    print(f"  Teste (hold-out): {len(X_val)} imagens")
 
+    print("\n[INFO] Analisando a distribuição de classes no conjunto de treino...")
+    class_counts = {i: 0 for i in range(config.NUM_CLASSES)}
+    for mask_path in tqdm(y_train, desc="Analisando máscaras"):
+        mask = data_loader.read_mask(mask_path.encode())
+        unique, counts = np.unique(mask, return_counts=True)
+        for cls, count in zip(unique, counts):
+            if cls in class_counts:
+                class_counts[cls] += count
 
-    # Criando os datasets do TensorFlow
-    # Use X_train, y_train, X_val, y_val conforme retornados por data_loader.load_dataset
+    print("\nDistribuição de pixels por classe:")
+    total_pixels = sum(class_counts.values())
+    for cls, count in class_counts.items():
+        percentage = (count / total_pixels) * 100 if total_pixels > 0 else 0
+        print(f"  Classe {cls}: {count} pixels ({percentage:.4f}%)")
+    
+    class_frequencies = np.array([class_counts[i] for i in range(config.NUM_CLASSES)])
+    median_frequency = np.median(class_frequencies[class_frequencies > 0])
+    class_weights = median_frequency / (class_frequencies + 1e-6)
+    class_weights = class_weights / np.sum(class_weights) * config.NUM_CLASSES
+
+    print("\nPesos calculados para as classes:")
+    print(class_weights)
+    class_weights_tensor = tf.constant(class_weights, dtype=tf.float32)
+
+    def weighted_combined_loss(y_true, y_pred):
+        y_true_one_hot = tf.cast(tf.one_hot(tf.cast(y_true, tf.int32), depth=config.NUM_CLASSES), tf.float32)
+        y_pred_clipped = tf.clip_by_value(y_pred, 1e-7, 1.0)
+        
+        cross_entropy = -y_true_one_hot * tf.math.log(y_pred_clipped)
+        weighted_cross_entropy = cross_entropy * class_weights_tensor
+        focal_modulation = tf.pow(1 - y_pred_clipped, 2.0)
+        f_loss = focal_modulation * weighted_cross_entropy
+        f_loss_reduced = tf.reduce_mean(tf.reduce_sum(f_loss, axis=-1))
+
+        d_loss = metrics.dice_loss(y_true, y_pred)
+        return f_loss_reduced + d_loss
+
     train_dataset = data_loader.tf_dataset(X_train, y_train, config.BATCH_SIZE)
     valid_dataset = data_loader.tf_dataset(X_test, y_test, config.BATCH_SIZE)
     
-    # Opcional: Se você quiser um dataset para inferência/previsão, use tf_dataset_inference
-    # test_inference_dataset = data_loader.tf_dataset_inference(X_test, config.BATCH_SIZE)
-
-
-    # Construindo o modelo
-    input_shape = (config.HEIGHT, config.WIDTH, 3) # As dimensões da imagem e canais
-    # Certifique-se que unet.build_unet existe e retorna um modelo Keras
+    input_shape = (config.HEIGHT, config.WIDTH, 3)
     model = unet.build_unet(input_shape, config.NUM_CLASSES)
     model.summary()
 
-    # Treinando o modelo
-    # Certifique-se que train.train_model existe e espera o modelo e os datasets
-    history = train.train_model(model, train_dataset, valid_dataset)
+    history = train.train_model(
+        model, 
+        train_dataset, 
+        valid_dataset, 
+        loss_function=weighted_combined_loss
+    )
 
-    # Salvando os gráficos do histórico de treinamento
-    # Certifique-se que train.plot_history existe e espera o objeto history
-    train.plot_history(history, config.RESULTS_PATH) # Passando RESULTS_PATH para salvar no local correto
+    train.plot_history(history, config.RESULTS_PATH)
     
-    # Salvar o modelo após o treinamento
-    # Certifique-se que config.MODEL_PATH está definido no seu config.py
     model.save(config.MODEL_PATH)
     
     print("\nTreinamento concluído!")

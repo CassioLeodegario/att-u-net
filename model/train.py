@@ -1,12 +1,7 @@
-# model/train.py
-
 import sys
 import os
 att_unet_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, att_unet_path)
-
-
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import config
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau, EarlyStopping
@@ -14,29 +9,22 @@ import tensorflow as tf
 from utils import metrics
 import matplotlib.pyplot as plt
 
-def train_model(model, train_dataset, valid_dataset):
-    """
-    Compila e treina o modelo com os datasets fornecidos.
-    """
-    # Métricas
+def train_model(model, train_dataset, valid_dataset, loss_function):
     metrics_to_use = [metrics.dice_coef, metrics.iou, "accuracy"]
 
-    # Callbacks
     callbacks = [
-        ModelCheckpoint(config.MODEL_PATH, verbose=1, save_best_only=True),
+        ModelCheckpoint(config.MODEL_PATH, verbose=1, save_best_only=True, monitor='val_loss'),
         ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=4),
         CSVLogger(config.RESULTS_PATH + "training_log.csv"),
         EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=False),
     ]
 
-    # Compilação
     model.compile(
-        loss=metrics.combined_loss,
+        loss=loss_function,
         optimizer=tf.keras.optimizers.Adam(config.LR),
         metrics=metrics_to_use
     )
 
-    # Treinamento
     history = model.fit(
         train_dataset,
         epochs=config.EPOCHS,
@@ -47,10 +35,6 @@ def train_model(model, train_dataset, valid_dataset):
     return history
 
 def plot_history(history, results_path):
-    """
-    Salva gráficos da perda e do coeficiente de Dice ao longo das épocas.
-    """
-    # Gráfico da Perda (Loss)
     plt.figure()
     plt.plot(history.history['loss'], label='Training Loss')
     plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -58,9 +42,8 @@ def plot_history(history, results_path):
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
-    plt.savefig(config.RESULTS_PATH + 'loss_plot.png')
+    plt.savefig(os.path.join(results_path, 'loss_plot.png'))
     
-    # Gráfico do Coeficiente de Dice
     plt.figure()
     plt.plot(history.history['dice_coef'], label='Training Dice Coef')
     plt.plot(history.history['val_dice_coef'], label='Validation Dice Coef')
