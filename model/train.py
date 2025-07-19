@@ -31,7 +31,7 @@ def train_model(model, train_dataset, valid_dataset):
 
     # Compilação
     model.compile(
-        loss=metrics.focal_loss(gamma=2.0),
+        loss=metrics.combined_loss,
         optimizer=tf.keras.optimizers.Adam(config.LR),
         metrics=metrics_to_use
     )
@@ -46,7 +46,7 @@ def train_model(model, train_dataset, valid_dataset):
     
     return history
 
-def plot_history(history):
+def plot_history(history, results_path):
     """
     Salva gráficos da perda e do coeficiente de Dice ao longo das épocas.
     """
@@ -68,4 +68,4 @@ def plot_history(history):
     plt.xlabel('Epochs')
     plt.ylabel('Dice Coef')
     plt.legend()
-    plt.savefig(config.RESULTS_PATH + 'dice_coef_plot.png')
+    plt.savefig(os.path.join(results_path, "plot.png"))

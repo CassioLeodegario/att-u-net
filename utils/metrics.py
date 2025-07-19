@@ -53,3 +53,11 @@ def focal_loss(gamma=2.0):
 
         return tf.reduce_mean(tf.reduce_sum(loss, axis=-1))  # média por imagem
     return loss_fn
+
+def combined_loss(y_true, y_pred):
+    """
+    Combinação de Focal Loss e Dice Loss.
+    """
+    f_loss = focal_loss(gamma=2.0)(y_true, y_pred)
+    d_loss = dice_loss(y_true, y_pred)
+    return f_loss + d_loss
