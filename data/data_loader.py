@@ -60,12 +60,26 @@ def tf_parse(x, y):
     return x, y
 
 def tf_augment(x, y):
-    x = tf.image.random_flip_left_right(x)
-    y = tf.image.random_flip_left_right(tf.expand_dims(y, -1))
+    # Expande a dimensão da máscara para aplicar transformações
+    y = tf.expand_dims(y, -1)
+
+    # 1. Rotação Aleatória (0, 90, 180, ou 270 graus)
+    k = tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32)
+    x = tf.image.rot90(x, k)
+    y = tf.image.rot90(y, k)
+
+    # 2. Flip Esquerda-Direita Aleatório
+    if tf.random.uniform(()) > 0.5:
+        x = tf.image.flip_left_right(x)
+        y = tf.image.flip_left_right(y)
+
+    # Retorna a máscara para o formato original
     y = tf.squeeze(y, -1)
 
+    # 3. Augmentações de Cor
     x = tf.image.random_brightness(x, max_delta=0.1)
     x = tf.image.random_contrast(x, 0.9, 1.1)
+    
     return x, y
 
 def tf_dataset(X, Y, batch_size):
