@@ -39,14 +39,18 @@ def read_image(path):
 
 def read_mask(path):
     path = path.decode()
-    x = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    x = cv2.resize(x, (config.WIDTH, config.HEIGHT), interpolation=cv2.INTER_NEAREST)
+    original_mask = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    original_mask = cv2.resize(original_mask, (config.WIDTH, config.HEIGHT), interpolation=cv2.INTER_NEAREST)
 
-    # Ignora valores > 7 (transforma em 0)
-    x = np.where(x > 7, 0, x)
+    mapping = np.full(shape=(22,), fill_value=4, dtype=np.uint8)
+    mapping[1] = 0  # tumor
+    mapping[2] = 1  # stroma
+    mapping[3] = 2  # lymphocytic_infiltrate
+    mapping[4] = 3  # necrosis_or_debris
 
-    x = x.astype(np.int32)
-    return x
+    new_mask = mapping[original_mask]
+    
+    return new_mask.astype(np.int32)
 
 def tf_parse(x, y):
     def _parse(x, y):

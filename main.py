@@ -10,10 +10,12 @@ from utils import metrics
 if __name__ == "__main__":
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
+    # --- Criação do diretório de resultados ---
     if not os.path.exists(config.RESULTS_PATH):
         os.makedirs(config.RESULTS_PATH)
         print(f"Diretório de resultados criado: {config.RESULTS_PATH}")
     
+    # --- Configuração da GPU ---
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
         try:
@@ -25,67 +27,109 @@ if __name__ == "__main__":
     else:
         print("Nenhuma GPU encontrada. O treinamento será executado na CPU.")
 
+    # --- Carregamento do Dataset ---
     (X_train, y_train), (X_val, y_val), (X_test, y_test) = \
         data_loader.load_dataset(config.DATASET_PATH, test_split_ratio=0.15)
     
-    print(f"Dataset carregado:")
+    print(f"\nDataset carregado:")
     print(f"  Treino: {len(X_train)} imagens")
     print(f"  Validação: {len(X_test)} imagens")
-    print(f"  Teste (hold-out): {len(X_val)} imagens")
+    print(f"  Teste (hold-out): {len(y_val)} imagens") # Corrigido de X_val para y_val para consistência
 
-    print("\n[INFO] Analisando a distribuição de classes no conjunto de treino...")
+    # ==============================================================================
+    #      SEÇÃO MODIFICADA: Análise de Classes e Cálculo de Pesos
+    # ==============================================================================
+    
+    print("\n[INFO] Analisando a distribuição de classes no conjunto de treino (após remapeamento)...")
+    # O dicionário agora vai até NUM_CLASSES (5)
     class_counts = {i: 0 for i in range(config.NUM_CLASSES)}
+    
     for mask_path in tqdm(y_train, desc="Analisando máscaras"):
+        # A função read_mask agora retorna a máscara já remapeada para 0-4
         mask = data_loader.read_mask(mask_path.encode())
         unique, counts = np.unique(mask, return_counts=True)
         for cls, count in zip(unique, counts):
             if cls in class_counts:
                 class_counts[cls] += count
 
-    print("\nDistribuição de pixels por classe:")
+    print("\nDistribuição de pixels por classe (após remapeamento):")
     total_pixels = sum(class_counts.values())
-    for cls, count in class_counts.items():
-        percentage = (count / total_pixels) * 100 if total_pixels > 0 else 0
-        print(f"  Classe {cls}: {count} pixels ({percentage:.4f}%)")
+    # Labels correspondentes às novas classes 0, 1, 2, 3, 4
+    labels = ["tumor", "stroma", "lymphocytic_infiltrate", "necrosis_or_debris", "IGNORAR"]
     
-    class_frequencies = np.array([class_counts[i] for i in range(config.NUM_CLASSES)])
-    median_frequency = np.median(class_frequencies[class_frequencies > 0])
-    class_weights = median_frequency / (class_frequencies + 1e-6)
-    class_weights = class_weights / np.sum(class_weights) * config.NUM_CLASSES
+    for cls, label in enumerate(labels):
+        count = class_counts.get(cls, 0)
+        percentage = (count / total_pixels) * 100 if total_pixels > 0 else 0
+        print(f"  Classe {cls} ({label}): {count} pixels ({percentage:.4f}%)")
+    
+    # --- Cálculo de Pesos Robusto ---
+    class_frequencies = np.array([class_counts.get(i, 0) for i in range(config.NUM_CLASSES)], dtype=np.float32)
+    
+    # Inicializa pesos com zero
+    class_weights = np.zeros_like(class_frequencies)
+    
+    # Seleciona as frequências apenas das classes de interesse (0 a 3) que realmente aparecem
+    interest_frequencies = class_frequencies[:4]
+    non_zero_frequencies = interest_frequencies[interest_frequencies > 0]
+    
+    if len(non_zero_frequencies) > 0:
+        # Calcula a mediana apenas com base nas classes de interesse que existem no dataset
+        median_frequency = np.median(non_zero_frequencies)
+        
+        # Calcula os pesos para as classes de interesse (0 a 3)
+        class_weights[:4] = median_frequency / (interest_frequencies + 1e-6) # Adiciona epsilon para evitar divisão por zero
 
-    print("\nPesos calculados para as classes:")
-    print(class_weights)
+    # O peso para a classe 4 (IGNORAR) é mantido em ZERO.
+    # Esta é a parte crucial que faz a loss function ignorar esses pixels.
+    print("\nPesos calculados para as classes (peso 0 para ignorar):")
+    for i, label in enumerate(labels):
+        print(f"  {label}: {class_weights[i]:.4f}")
+    
     class_weights_tensor = tf.constant(class_weights, dtype=tf.float32)
 
+    # --- Definição da Função de Perda Ponderada ---
     def weighted_combined_loss(y_true, y_pred):
+        # A Focal Loss será ponderada pelos pesos, onde o peso da classe "ignorar" é 0
         y_true_one_hot = tf.cast(tf.one_hot(tf.cast(y_true, tf.int32), depth=config.NUM_CLASSES), tf.float32)
         y_pred_clipped = tf.clip_by_value(y_pred, 1e-7, 1.0)
         
+        # Focal Loss Ponderada
         cross_entropy = -y_true_one_hot * tf.math.log(y_pred_clipped)
         weighted_cross_entropy = cross_entropy * class_weights_tensor
         focal_modulation = tf.pow(1 - y_pred_clipped, 2.0)
         f_loss = focal_modulation * weighted_cross_entropy
         f_loss_reduced = tf.reduce_mean(tf.reduce_sum(f_loss, axis=-1))
 
+        # A Dice Loss usará a versão modificada do arquivo metrics.py
         d_loss = metrics.dice_loss(y_true, y_pred)
+        
         return f_loss_reduced + d_loss
 
+    # ==============================================================================
+    #      Fim da Seção Modificada
+    # ==============================================================================
+
+    # --- Preparação dos Datasets para o Treinamento ---
     train_dataset = data_loader.tf_dataset(X_train, y_train, config.BATCH_SIZE)
     valid_dataset = data_loader.tf_dataset(X_test, y_test, config.BATCH_SIZE)
     
+    # --- Construção e Compilação do Modelo ---
     input_shape = (config.HEIGHT, config.WIDTH, 3)
     model = unet.build_unet(input_shape, config.NUM_CLASSES)
     model.summary()
 
+    # --- Treinamento do Modelo ---
     history = train.train_model(
         model, 
         train_dataset, 
         valid_dataset, 
-        loss_function=weighted_combined_loss
+        loss_function=weighted_combined_loss  # Passando a nova loss ponderada
     )
 
+    # --- Pós-treinamento ---
     train.plot_history(history, config.RESULTS_PATH)
     
+    # Salva o modelo final. O callback ModelCheckpoint já salvou a melhor versão.
     model.save(config.MODEL_PATH)
     
     print("\nTreinamento concluído!")
