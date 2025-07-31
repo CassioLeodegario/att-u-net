@@ -14,7 +14,7 @@ def train_model(model, train_dataset, valid_dataset, loss_function):
 
     callbacks = [
         ModelCheckpoint(config.MODEL_PATH, verbose=1, save_best_only=True, monitor='val_loss'),
-        ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=10, min_lr=1e-7),
+        ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=8, min_lr=1e-7),
         CSVLogger(config.RESULTS_PATH + "training_log.csv"),
         EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=False),
     ]
