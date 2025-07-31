@@ -37,9 +37,9 @@ def attention_gate(g, s, num_filters):
     return out * s
 
 def decoder_block(inputs, skip_features, num_filters):
-    x = UpSampling2D(interpolation="bilinear")(inputs)
-    s = attention_gate(x, skip_features, num_filters)
-    x = Concatenate()([x, s])
+    x = UpSampling2D(interpolation="bilinear")(inputs)    
+    x = Concatenate()([x, skip_features])
+    
     x = conv_block(x, num_filters)
     return x
 
